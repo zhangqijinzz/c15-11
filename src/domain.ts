@@ -41,6 +41,17 @@ export function summarizeScenario(scenario: EnergyScenario): ScenarioSummary {
   };
 }
 
+export type DraftParse = { ok: true; value: number } | { ok: false; error: string };
+
+/** 解析输入框草稿：输入过程中的空值/不完整内容在这里被拦截，只有完整数字才能进入校验与计算 */
+export function parseNumberDraft(text: string, label: string): DraftParse {
+  const trimmed = text.trim();
+  if (!trimmed) return { ok: false, error: `请填写${label}` };
+  const value = Number(trimmed);
+  if (!Number.isFinite(value)) return { ok: false, error: `${label}需为有效数字` };
+  return { ok: true, value };
+}
+
 export function validateDevice(device: Pick<EnergyDevice, 'name' | 'watts' | 'dailyHours'>): string | null {
   if (!device.name.trim()) return '请填写设备名称';
   if (!Number.isFinite(device.watts) || device.watts < 0) return '功率不能为负数';

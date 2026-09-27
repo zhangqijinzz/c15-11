@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { estimateDevice, summarizeScenario, validateDevice } from '../domain';
+import { estimateDevice, parseNumberDraft, summarizeScenario, validateDevice } from '../domain';
 import type { EnergyScenario } from '../types';
 
 describe('energy domain', () => {
@@ -20,5 +20,16 @@ describe('energy domain', () => {
   it('rejects negative power and more than 24 hours', () => {
     expect(validateDevice({ name: 'x', watts: -1, dailyHours: 1 })).toBe('功率不能为负数');
     expect(validateDevice({ name: 'x', watts: 1, dailyHours: 24.1 })).toBe('每日使用时间不能超过 24 小时');
+  });
+
+  it('rejects empty or non-numeric drafts instead of coercing them to zero', () => {
+    expect(parseNumberDraft('', '功率')).toEqual({ ok: false, error: '请填写功率' });
+    expect(parseNumberDraft('   ', '电价')).toEqual({ ok: false, error: '请填写电价' });
+    expect(parseNumberDraft('abc', '功率')).toEqual({ ok: false, error: '功率需为有效数字' });
+  });
+
+  it('parses complete draft text into a number', () => {
+    expect(parseNumberDraft('0', '功率')).toEqual({ ok: true, value: 0 });
+    expect(parseNumberDraft(' 0.62 ', '电价')).toEqual({ ok: true, value: 0.62 });
   });
 });

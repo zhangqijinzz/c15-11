@@ -1,6 +1,7 @@
 import { DeviceEditor } from './components/DeviceEditor';
+import { DraftInput } from './components/DraftInput';
 import { ScenarioCard } from './components/ScenarioCard';
-import { formatNumber } from './domain';
+import { formatNumber, parseNumberDraft, validateScenarioSettings } from './domain';
 import { useEnergyLens } from './hooks';
 
 function App() {
@@ -12,6 +13,16 @@ function App() {
   const baseline = state.document?.scenarios.find((item) => item.id !== active.id);
   const comparisonValue = baseline && baseline.id !== active.id ? baseline.devices.reduce((total, device) => total + (device.watts * device.dailyHours * baseline.daysPerMonth) / 1000, 0) : null;
   const deltaKwh = comparisonValue === null ? null : summary.total.monthlyKwh - comparisonValue;
+
+  const commitSettings = (key: 'daysPerMonth' | 'pricePerKwh', label: string) => (text: string): string | null => {
+    const parsed = parseNumberDraft(text, label);
+    if (!parsed.ok) return parsed.error;
+    const next = { ...active, [key]: parsed.value };
+    const error = validateScenarioSettings(next.pricePerKwh, next.daysPerMonth);
+    if (error) return error;
+    if (parsed.value !== active[key]) vm.updateSettings({ [key]: parsed.value });
+    return null;
+  };
 
   return <div className="app-shell">
     <header className="topbar">
@@ -37,8 +48,8 @@ function App() {
 
         <section className="panel settings-panel">
           <div className="panel-heading"><div><span className="step">02</span><h2>时间与价格</h2><p>调整计费周期，让估算更贴近你的账单</p></div></div>
-          <label className="big-field"><span>每月计费天数 <em>天</em></span><input type="number" min="1" max="31" value={active.daysPerMonth} onChange={(event) => vm.updateSettings({ daysPerMonth: Number(event.target.value) })} /></label>
-          <label className="big-field"><span>居民电价 <em>元 / kWh</em></span><div className="input-prefix"><b>¥</b><input type="number" min="0" step="0.01" value={active.pricePerKwh} onChange={(event) => vm.updateSettings({ pricePerKwh: Number(event.target.value) })} /></div></label>
+          <label className="big-field"><span>每月计费天数 <em>天</em></span><DraftInput type="number" min="1" max="31" value={String(active.daysPerMonth)} onCommit={commitSettings('daysPerMonth', '计费天数')} /></label>
+          <label className="big-field"><span>居民电价 <em>元 / kWh</em></span><DraftInput type="number" min="0" step="0.01" leading={<b>¥</b>} value={String(active.pricePerKwh)} onCommit={commitSettings('pricePerKwh', '电价')} /></label>
           <div className="formula"><span>计算方式</span><code>功率(W) × 时长(h) ÷ 1,000 × 天数</code><small>结果为估算值，实际账单可能受阶梯电价影响。</small></div>
         </section>
       </div>
