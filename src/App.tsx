@@ -1,4 +1,5 @@
 import { DeviceEditor } from './components/DeviceEditor';
+import { DraftInput } from './components/DraftInput';
 import { ScenarioCard } from './components/ScenarioCard';
 import { formatNumber } from './domain';
 import { useEnergyLens } from './hooks';
@@ -30,15 +31,15 @@ function App() {
       <div className="workspace-grid">
         <section className="panel setup-panel">
           <div className="panel-heading"><div><span className="step">01</span><h2>设备配置</h2><p>输入设备的额定功率与每天使用时长</p></div><span className="count-pill">{active.devices.length} 台设备</span></div>
-          <div className="device-list">{active.devices.map((device) => <DeviceEditor key={device.id} device={device} onChange={(patch) => vm.updateDevice(device.id, patch)} onRemove={() => vm.removeDevice(device.id)} />)}</div>
+          <div className="device-list">{active.devices.map((device) => <DeviceEditor key={device.id} device={device} onCommit={(patch) => vm.updateDevice(device.id, patch)} onRemove={() => vm.removeDevice(device.id)} />)}</div>
           <button className="add-device" onClick={() => vm.addDevice()}><span>＋</span> 添加一台设备</button>
           <div className="tip"><span>✦</span><p><strong>小提示</strong> 功率可以在设备铭牌或说明书上找到，1,000 W = 1 kW。</p></div>
         </section>
 
         <section className="panel settings-panel">
           <div className="panel-heading"><div><span className="step">02</span><h2>时间与价格</h2><p>调整计费周期，让估算更贴近你的账单</p></div></div>
-          <label className="big-field"><span>每月计费天数 <em>天</em></span><input type="number" min="1" max="31" value={active.daysPerMonth} onChange={(event) => vm.updateSettings({ daysPerMonth: Number(event.target.value) })} /></label>
-          <label className="big-field"><span>居民电价 <em>元 / kWh</em></span><div className="input-prefix"><b>¥</b><input type="number" min="0" step="0.01" value={active.pricePerKwh} onChange={(event) => vm.updateSettings({ pricePerKwh: Number(event.target.value) })} /></div></label>
+          <label className="big-field"><span>每月计费天数 <em>天</em></span><DraftInput type="number" min="1" max="31" committed={String(active.daysPerMonth)} onCommit={(raw) => vm.updateSettings({ daysPerMonth: raw })} /></label>
+          <label className="big-field"><span>居民电价 <em>元 / kWh</em></span><div className="input-prefix"><b>¥</b><DraftInput type="number" min="0" step="0.01" committed={String(active.pricePerKwh)} onCommit={(raw) => vm.updateSettings({ pricePerKwh: raw })} /></div></label>
           <div className="formula"><span>计算方式</span><code>功率(W) × 时长(h) ÷ 1,000 × 天数</code><small>结果为估算值，实际账单可能受阶梯电价影响。</small></div>
         </section>
       </div>

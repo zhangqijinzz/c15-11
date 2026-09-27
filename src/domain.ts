@@ -41,6 +41,16 @@ export function summarizeScenario(scenario: EnergyScenario): ScenarioSummary {
   };
 }
 
+export function parseNumberInput(raw: number | string, label: string): { value: number } | { error: string } {
+  if (typeof raw === 'number') {
+    return Number.isFinite(raw) ? { value: raw } : { error: `${label}需为有效数字` };
+  }
+  const trimmed = raw.trim();
+  if (!trimmed) return { error: `请填写${label}` };
+  const value = Number(trimmed);
+  return Number.isFinite(value) ? { value } : { error: `${label}需为有效数字` };
+}
+
 export function validateDevice(device: Pick<EnergyDevice, 'name' | 'watts' | 'dailyHours'>): string | null {
   if (!device.name.trim()) return '请填写设备名称';
   if (!Number.isFinite(device.watts) || device.watts < 0) return '功率不能为负数';

@@ -29,6 +29,37 @@ describe('EnergyLensViewModel', () => {
     expect(vm.activeScenario?.devices[0].watts).toBe(1200);
   });
 
+  it('commits a confirmed draft and returns null on success', () => {
+    const error = vm.updateDevice('device-aircon', { watts: '800' });
+    expect(error).toBeNull();
+    expect(vm.activeScenario?.devices[0].watts).toBe(800);
+    expect(repository.save).toHaveBeenCalled();
+  });
+
+  it('rejects an empty draft without touching the document or storage', () => {
+    const saveCalls = repository.save.mock.calls.length;
+    const error = vm.updateDevice('device-aircon', { watts: '' });
+    expect(error).toBe('请填写功率');
+    expect(vm.getState().notice?.kind).toBe('error');
+    expect(vm.activeScenario?.devices[0].watts).toBe(1200);
+    expect(vm.activeSummary?.total.monthlyKwh).toBeGreaterThan(0);
+    expect(repository.save.mock.calls.length).toBe(saveCalls);
+  });
+
+  it('rejects an empty device name without polluting saved data', () => {
+    const error = vm.updateDevice('device-aircon', { name: '   ' });
+    expect(error).toBe('请填写设备名称');
+    expect(vm.activeScenario?.devices[0].name).toBe('客厅空调');
+  });
+
+  it('rejects out-of-range settings drafts and keeps the committed values', () => {
+    expect(vm.updateSettings({ daysPerMonth: '' })).toBe('请填写计费天数');
+    expect(vm.updateSettings({ daysPerMonth: '40' })).toBe('计费天数需在 1–31 天之间');
+    expect(vm.activeScenario?.daysPerMonth).toBe(30);
+    expect(vm.updateSettings({ pricePerKwh: '0.8' })).toBeNull();
+    expect(vm.activeScenario?.pricePerKwh).toBe(0.8);
+  });
+
   it('duplicates a scenario and can recover a saved document', () => {
     vm.duplicateActive();
     expect(vm.getState().document?.scenarios).toHaveLength(2);

@@ -1,4 +1,4 @@
-import { cloneScenario, summarizeScenario, validateDevice, validateScenarioSettings } from './domain';
+import { cloneScenario, parseNumberInput, summarizeScenario, validateDevice, validateScenarioSettings } from './domain';
 import { findScenario, type EnergyRepository } from './repository';
 import type { EnergyDevice, EnergyDocument, EnergyScenario, Notice, ViewStatus } from './types';
 
@@ -7,6 +7,9 @@ export interface EnergyLensState {
   status: ViewStatus;
   notice: Notice | null;
 }
+
+export type DeviceDraftPatch = Partial<{ name: string; watts: number | string; dailyHours: number | string }>;
+export type SettingsDraftPatch = Partial<{ name: string; pricePerKwh: number | string; daysPerMonth: number | string }>;
 
 type Listener = (state: EnergyLensState) => void;
 
@@ -41,18 +44,27 @@ export class EnergyLensViewModel {
     return this.activeScenario ? summarizeScenario(this.activeScenario) : null;
   }
 
-  updateDevice(deviceId: string, patch: Partial<Pick<EnergyDevice, 'name' | 'watts' | 'dailyHours'>>): void {
+  updateDevice(deviceId: string, patch: DeviceDraftPatch): string | null {
     const scenario = this.activeScenario;
-    if (!scenario) return;
+    if (!scenario) return null;
     const device = scenario.devices.find((item) => item.id === deviceId);
-    if (!device) return;
-    const next = { ...device, ...patch };
-    const error = validateDevice(next);
-    if (error) {
-      this.setNotice({ kind: 'error', text: error });
-      return;
+    if (!device) return null;
+    const next: EnergyDevice = { ...device };
+    if (patch.name !== undefined) next.name = patch.name;
+    if (patch.watts !== undefined) {
+      const parsed = parseNumberInput(patch.watts, '功率');
+      if ('error' in parsed) return this.reject(parsed.error);
+      next.watts = parsed.value;
     }
+    if (patch.dailyHours !== undefined) {
+      const parsed = parseNumberInput(patch.dailyHours, '每日使用时间');
+      if ('error' in parsed) return this.reject(parsed.error);
+      next.dailyHours = parsed.value;
+    }
+    const error = validateDevice(next);
+    if (error) return this.reject(error);
     this.commit((current) => ({ ...current, devices: current.devices.map((item) => item.id === deviceId ? next : item) }), '参数已更新');
+    return null;
   }
 
   addDevice(): void {
@@ -71,16 +83,25 @@ export class EnergyLensViewModel {
     this.commit((current) => ({ ...current, devices: current.devices.filter((item) => item.id !== deviceId) }), '设备已移除');
   }
 
-  updateSettings(patch: Partial<Pick<EnergyScenario, 'name' | 'pricePerKwh' | 'daysPerMonth'>>): void {
+  updateSettings(patch: SettingsDraftPatch): string | null {
     const scenario = this.activeScenario;
-    if (!scenario) return;
-    const next = { ...scenario, ...patch };
-    const error = validateScenarioSettings(next.pricePerKwh, next.daysPerMonth);
-    if (error) {
-      this.setNotice({ kind: 'error', text: error });
-      return;
+    if (!scenario) return null;
+    const next = { ...scenario };
+    if (patch.name !== undefined) next.name = patch.name;
+    if (patch.pricePerKwh !== undefined) {
+      const parsed = parseNumberInput(patch.pricePerKwh, '电价');
+      if ('error' in parsed) return this.reject(parsed.error);
+      next.pricePerKwh = parsed.value;
     }
+    if (patch.daysPerMonth !== undefined) {
+      const parsed = parseNumberInput(patch.daysPerMonth, '计费天数');
+      if ('error' in parsed) return this.reject(parsed.error);
+      next.daysPerMonth = parsed.value;
+    }
+    const error = validateScenarioSettings(next.pricePerKwh, next.daysPerMonth);
+    if (error) return this.reject(error);
     this.commit((current) => ({ ...current, name: next.name.trim() || '未命名方案', pricePerKwh: next.pricePerKwh, daysPerMonth: next.daysPerMonth }), '计费参数已更新');
+    return null;
   }
 
   duplicateActive(): void {
@@ -116,6 +137,11 @@ export class EnergyLensViewModel {
       this.state = { ...this.state, status: 'error', notice: { kind: 'error', text: '保存失败，当前页面仍可继续编辑' } };
     }
     this.emit();
+  }
+
+  private reject(error: string): string {
+    this.setNotice({ kind: 'error', text: error });
+    return error;
   }
 
   private setNotice(notice: Notice): void {
